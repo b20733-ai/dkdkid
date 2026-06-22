@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카페 아웃 (Caffeine out)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 달력 농도별 갈색 단계 스타일 */
+        .caff-0 { background-color: #ffffff; border: 1px solid #e5e7eb; color: #1f2937; }
+        .caff-50 { background-color: #efebe9; color: #5d4037; border: 1px solid #d7ccc8; }
+        .caff-100 { background-color: #d7ccc8; color: #4e342e; }
+        .caff-150 { background-color: #a1887f; color: #ffffff; }
+        .caff-over { background-color: #5d4037; color: #ffffff; }
+
+        /* 커스텀 스크롤바 숨김 처리 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-amber-50 font-sans min-h-screen flex justify-center items-center p-2">
+
+    <div id="app" class="w-full max-w-md bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col relative border border-amber-200" style="height: 840px;">
+        
+        <div id="authModal" class="absolute inset-0 bg-white z-50 p-6 flex flex-col justify-between">
+            <div class="flex-1 flex flex-col justify-center">
+                <h2 class="text-3xl font-extrabold text-center text-amber-900 mb-2">☕ 카페 아웃</h2>
+                <p class="text-center text-xs text-amber-700 tracking-wide mb-8">내 손안의 똑똑한 카페인 절제 메이트</p>
+                
+                <div id="loginForm" class="space-y-3">
+                    <h3 class="text-sm font-bold text-gray-700">로그인</h3>
+                    <input type="text" id="loginId" placeholder="아이디" class="w-full p-3 border border-amber-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-600 text-sm">
+                    <input type="password" id="loginPw" placeholder="비밀번호" class="w-full p-3 border border-amber-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-600 text-sm">
+                    <button onclick="handleLogin()" class="w-full bg-amber-800 text-white p-3 rounded-xl font-bold hover:bg-amber-900 transition text-sm">로그인</button>
+                    <p class="text-center text-xs text-gray-500 mt-4">계정이 없으신가요? <button onclick="toggleAuthView(false)" class="text-amber-800 font-bold underline">회원가입</button></p>
+                </div>
+
+                <div id="registerForm" class="space-y-3 hidden">
+                    <h3 class="text-sm font-bold text-gray-700">새 계정 만들기</h3>
+                    <input type="text" id="regId" placeholder="아이디 입력" class="w-full p-3 border border-amber-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-600 text-sm">
+                    <input type="password" id="regPw" placeholder="비밀번호 입력" class="w-full p-3 border border-amber-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-600 text-sm">
+                    <input type="text" id="regName" placeholder="사용할 닉네임" class="w-full p-3 border border-amber-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-600 text-sm">
+                    <button onclick="handleRegister()" class="w-full bg-emerald-700 text-white p-3 rounded-xl font-bold hover:bg-emerald-800 transition text-sm">가입 완료 및 자동 로그인</button>
+                    <p class="text-center text-xs text-gray-500 mt-4">이미 계정이 있나요? <button onclick="toggleAuthView(true)" class="text-amber-800 font-bold underline">로그인으로 돌아가기</button></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="setupModal" class="absolute inset-0 bg-white z-40 p-6 flex flex-col justify-between hidden">
+            <div class="flex-1 flex flex-col justify-center">
+                <h2 class="text-2xl font-black text-amber-900 text-center mb-6">⚙️ 최초 정보 동기화</h2>
+                
+                <div id="stepPetName" class="space-y-4">
+                    <p class="text-gray-600 text-center text-sm font-medium">나만의 반려견 동반자 이름을 지어주세요!</p>
+                    <input type="text" id="inputPetName" placeholder="강아지 이름 (예: 바둑이)" class="w-full p-3 border border-amber-300 rounded-xl text-center focus:ring-2 focus:ring-amber-600 outline-none text-sm">
+                    <button onclick="savePetName()" class="w-full bg-amber-800 text-white p-3 rounded-xl font-bold hover:bg-amber-900 transition text-sm">이름 지어주기</button>
+                </div>
+
+                <div id="stepAge" class="space-y-4 hidden">
+                    <p class="text-gray-600 text-center text-sm font-medium">정밀 처방을 위해 나이를 입력해 주세요.</p>
+                    <input type="number" id="inputAge" placeholder="나이 입력 (세)" class="w-full p-3 border border-amber-300 rounded-xl text-center focus:ring-2 focus:ring-amber-600 outline-none text-sm">
+                    <button onclick="goToWeight()" class="w-full bg-amber-800 text-white p-3 rounded-xl font-bold hover:bg-amber-900 transition text-sm">다음 단계</button>
+                </div>
+
+                <div id="stepWeight" class="space-y-4 hidden">
+                    <p class="text-gray-600 text-center text-sm font-medium">체중을 입력해 주세요.</p>
+                    <input type="number" id="inputWeight" placeholder="체중(kg) 입력" class="w-full p-3 border border-amber-300 rounded-xl text-center focus:ring-2 focus:ring-amber-600 outline-none text-sm">
+                    <button onclick="calculateRecommendation()" class="w-full bg-amber-800 text-white p-3 rounded-xl font-bold hover:bg-amber-900 transition text-sm">권장량 확인하기</button>
+                </div>
+
+                <div id="stepTarget" class="space-y-4 hidden">
+                    <div id="recommendText" class="text-amber-900 font-semibold text-center bg-amber-50 p-4 rounded-xl text-xs border border-amber-200 leading-relaxed"></div>
+                    <p class="text-gray-500 text-center text-[11px]">나만의 하루 최종 목표량(mg)을 명시해 주세요.</p>
+                    <input type="number" id="inputTarget" placeholder="목표 섭취량(mg) 입력" class="w-full p-3 border border-amber-300 rounded-xl text-center focus:ring-2 focus:ring-amber-600 outline-none text-sm">
+                    <button onclick="completeSetup()" class="w-full bg-emerald-700 text-white p-3 rounded-xl font-bold hover:bg-emerald-800 transition text-sm">설정 완료 (첫 가입 5코인 지급!)</button>
+                </div>
+            </div>
+        </div>
+
+        <header class="bg-amber-900 text-white p-4 flex justify-between items-center shrink-0 border-b border-amber-950">
+            <div>
+                <h1 class="text-lg font-black tracking-tight">Caffeine Out</h1>
+                <p class="text-[10px] text-amber-200 font-light"><span id="userNicknameBadge">-</span>님의 공간</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-1 bg-amber-950 px-2.5 py-1 rounded-full text-xs font-bold border border-amber-800">
+                    <span>🪙</span><span id="coinDisplay">0</span>
+                </div>
+                <button onclick="handleLogout()" class="text-[10px] bg-amber-800 px-2 py-1 rounded font-bold hover:bg-amber-700 transition">로그아웃</button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 space-y-6 pb-24 bg-white">
+            
+            <section id="view-main" class="space-y-6">
+                <div class="bg-amber-50/40 border border-amber-100 p-5 rounded-2xl text-center relative flex flex-col items-center">
+                    
+                    <div class="relative w-56 h-56 flex items-center justify-center">
+                        <svg class="w-full h-full transform -rotate-90 absolute top-0 left-0" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="44" stroke="#f3f4f6" stroke-width="6" fill="transparent" />
+                            <circle id="gaugeCircle" cx="50" cy="50" r="44" stroke="#d97706" stroke-width="6" fill="transparent" 
+                                    stroke-dasharray="276.3" stroke-dashoffset="276.3" stroke-linecap="round" class="transition-all duration-500" />
+                        </svg>
+                        
+                        <div class="w-36 h-36 bg-amber-100/50 rounded-full flex items-center justify-center relative shadow-inner overflow-hidden">
+                            <div class="dog-container relative w-24 h-24 flex items-center justify-center">
+                                <div class="absolute top-4 left-2 w-5 h-10 bg-amber-800 rounded-t-full rounded-b-xl transform -rotate-12"></div>
+                                <div class="absolute top-4 right-2 w-5 h-10 bg-amber-800 rounded-t-full rounded-b-xl transform rotate-12"></div>
+                                <div class="w-16 h-16 bg-amber-600 rounded-full relative shadow flex items-center justify-center">
+                                    <div class="absolute top-5 left-4 w-2.5 h-2.5 bg-gray-900 rounded-full"></div>
+                                    <div class="absolute top-5 right-4 w-2.5 h-2.5 bg-gray-900 rounded-full"></div>
+                                    <div class="absolute bottom-2 w-10 h-7 bg-amber-100 rounded-full flex flex-col items-center justify-center shadow-inner">
+                                        <div class="w-3 h-2 bg-black rounded-b-full mb-0.5"></div>
+                                        <div class="w-4 h-1 bg-amber-700 rounded-full"></div>
+                                    </div>
+                                </div>
+                                
+                                <div id="slot-head" class="absolute -top-1 left-0 right-0 text-center text-xl z-10 leading-none"></div>
+                                <div id="slot-eyes" class="absolute top-3 left-0 right-0 text-center text-lg z-10 leading-none"></div>
+                                <div id="slot-body" class="absolute bottom-1 left-0 right-0 text-center text-lg z-10 leading-none"></div>
+                                <div id="slot-legs" class="absolute -bottom-3 left-0 right-0 text-center text-base z-10 leading-none"></div>
+                                <div id="slot-shoes" class="absolute -bottom-5 left-0 right-0 text-center text-sm z-10 leading-none"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-2">
+                        <div id="characterNameBadge" class="text-[10px] bg-amber-800 text-white font-extrabold px-2.5 py-0.5 rounded-full inline-block mb-1">-</div>
+                        <div class="text-2xl font-black text-gray-800">
+                            <span id="todayIntakeText">0</span> / <span id="targetIntakeText">400</span> <span class="text-xs font-normal text-gray-400">mg</span>
+                        </div>
+                        <p id="gaugePercentText" class="text-xs text-amber-700 font-bold mt-0.5">0% 섭취 중</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold text-gray-600 mb-2">오늘 복용한 카페인 리스트</h3>
+                    <div id="todayLogsList" class="space-y-2">
+                        </div>
+                </div>
+            </section>
+
+            <section id="view-calendar" class="space-y-4 hidden">
+                <div class="bg-white border border-gray-200 rounded-2xl p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <button onclick="changeMonth(-1)" class="p-1.5 hover:bg-gray-100 rounded text-amber-900 font-black">◀</button>
+                        <h3 id="calendarMonthTitle" class="font-black text-gray-800 text-sm">2026년 06월</h3>
+                        <button onclick="changeMonth(1)" class="p-1.5 hover:bg-gray-100 rounded text-amber-900 font-black">▶</button>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1 text-[9px] justify-center bg-amber-50/60 p-2 rounded-xl mb-4 text-gray-500 font-semibold border border-amber-100/50">
+                        <span class="flex items-center"><span class="w-2 h-2 border bg-white inline-block mr-1"></span>0%</span>
+                        <span class="flex items-center"><span class="w-2 h-2 inline-block mr-1 caff-50"></span>~50%</span>
+                        <span class="flex items-center"><span class="w-2 h-2 inline-block mr-1 caff-100"></span>~100%</span>
+                        <span class="flex items-center"><span class="w-2 h-2 inline-block mr-1 caff-150"></span>~150%</span>
+                        <span class="flex items-center"><span class="w-2 h-2 inline-block mr-1 caff-over"></span>150%↑</span>
+                    </div>
+
+                    <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-gray-400 mb-2">
+                        <div class="text-red-500">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div class="text-blue-500">토</div>
+                    </div>
+                    <div id="calendarDaysGrid" class="grid grid-cols-7 gap-1.5 text-xs">
+                        </div>
+                </div>
+
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <h4 id="detailDateTitle" class="text-xs font-extrabold text-amber-950 mb-2">📅 날짜를 선택하시면 상세 내역이 나옵니다.</h4>
+                    <div id="calendarDetailContainer" class="text-xs text-gray-500 italic">
+                        일자 카드를 터치하여 상세 기록을 조회해 보세요.
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-stats" class="space-y-4 hidden">
+                <div class="bg-white border rounded-2xl p-4 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <button onclick="changeWeek(-1)" class="p-1 hover:bg-gray-100 rounded font-bold text-amber-900 text-xs">◀ 이전주</button>
+                        <span id="weekRangeTitle" class="text-xs font-black text-gray-700">6/15 - 6/21</span>
+                        <button onclick="changeWeek(1)" class="p-1 hover:bg-gray-100 rounded font-bold text-amber-900 text-xs">다음주 ▶</button>
+                    </div>
+
+                    <div class="h-44 flex items-end justify-between px-2 pt-6 border-b border-gray-200 relative">
+                        <div id="statsBarWrapper" class="w-full flex items-end justify-between h-full">
+                            </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-2">
+                        <div class="bg-amber-50/50 p-3 rounded-xl border border-amber-100 text-center">
+                            <p class="text-[10px] text-gray-400 font-medium">이번주 일 평균 섭취</p>
+                            <p id="statAvgText" class="text-sm font-black text-amber-950 mt-1">0 mg</p>
+                        </div>
+                        <div class="bg-amber-50/50 p-3 rounded-xl border border-amber-100 text-center">
+                            <p class="text-[10px] text-gray-400 font-medium">목표 달성 성공률</p>
+                            <p id="statSuccessText" class="text-sm font-black text-emerald-700 mt-1">0 / 7 일</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-shop" class="space-y-4 hidden">
+                <div class="bg-amber-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-md">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-2xl relative overflow-hidden border border-white/30">
+                            🐶
+                        </div>
+                        <div>
+                            <h4 id="shopPetNameLabel" class="text-xs font-black">-</h4>
+                            <p class="text-[10px] text-amber-200">착용 상태 실시간 미러링</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-amber-100 block text-[10px]">내 잔여 자산</span>
+                        <span class="text-base font-black text-yellow-300">🪙 <span id="shopCoinDisplay">0</span></span>
+                    </div>
+                </div>
+
+                <div id="shopItemsGrid" class="grid grid-cols-2 gap-3">
+                    </div>
+            </section>
+        </main>
+
+        <div id="drinkDrawer" class="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl z-40 p-5 transform translate-y-full transition-transform duration-300 flex flex-col" style="height: 560px; border-top: 2px solid #d7ccc8;">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-100">
+                <h3 class="font-extrabold text-gray-800 text-sm">🥤 음료 분석 및 섭취 비율 적용</h3>
+                <button onclick="toggleDrinkDrawer(false)" class="text-gray-400 text-sm hover:text-gray-600 font-black">✕</button>
+            </div>
+            
+            <div class="bg-amber-50/60 p-3 rounded-xl my-3 text-xs space-y-1.5 border border-amber-100">
+                <div class="flex justify-between font-bold text-amber-900">
+                    <span>💡 실제 마신 분량 비율 설정:</span>
+                    <span id="dosageLabel" class="text-xs text-red-600 font-black">100% 분량 복용</span>
+                </div>
+                <input type="range" id="dosageRange" min="10" max="200" value="100" step="10" oninput="updateDosageLabel()" class="w-full accent-amber-800">
+                <p class="text-[10px] text-gray-400 font-light">컵 기준량 대비 마신 비율에 근거하여 실시간 비율 환산 계산이 들어갑니다.</p>
+            </div>
+
+            <div class="flex space-x-1 overflow-x-auto text-[11px] pb-2 whitespace-nowrap no-scrollbar">
+                <button onclick="filterBrand('all')" class="brand-btn bg-amber-800 text-white px-3 py-1 rounded-full font-bold shadow-sm">전체</button>
+                <button onclick="filterBrand('스타벅스')" class="brand-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-bold">스타벅스</button>
+                <button onclick="filterBrand('메가커피')" class="brand-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-bold">메가커피</button>
+                <button onclick="filterBrand('빽다방')" class="brand-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-bold">빽다방</button>
+                <button onclick="filterBrand('에너지음료')" class="brand-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-bold">에너지/기타</button>
+            </div>
+
+            <input type="text" id="searchBar" oninput="performSearch()" placeholder="음료 브랜드 또는 메뉴명 검색..." class="w-full p-2 border border-amber-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-amber-800 mb-3">
+
+            <div id="drawerDrinksContainer" class="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                </div>
+        </div>
+
+        <div id="floatingBtnArea" class="absolute bottom-16 right-5 z-30">
+            <button onclick="toggleDrinkDrawer(true)" class="w-12 h-12 bg-amber-800 hover:bg-amber-900 text-white text-2xl font-light rounded-full shadow-xl flex items-center justify-center transform active:scale-95 transition-transform border-2 border-white">
+                ＋
+            </button>
+        </div>
+
+        <nav class="absolute bottom-0 inset-x-0 bg-amber-50 border-t border-amber-200 flex justify-around text-center text-[10px] text-amber-900 py-1.5 shrink-0 z-30">
+            <button onclick="changeTab('main')" id="tab-main" class="flex-1 font-black text-amber-950">
+                <div class="text-base">🏡</div><div>기록</div>
+            </button>
+            <button onclick="changeTab('calendar')" id="tab-calendar" class="flex-1 font-semibold text-amber-700/60">
+                <div class="text-base">📅</div><div>달력</div>
+            </button>
+            <button onclick="changeTab('stats')" id="tab-stats" class="flex-1 font-semibold text-amber-700/60">
+                <div class="text-base">📊</div><div>통계</div>
+            </button>
+            <button onclick="changeTab('shop')" id="tab-shop" class="flex-1 font-semibold text-amber-700/60">
+                <div class="text-base">🛒</div><div>상점/꾸미기</div>
+            </button>
+        </nav>
+
+    </div>
+
+    <script>
+        // 고정 데이터셋: 스타벅스, 메가커피, 빽다방, 에너지음료 총 16가지 마켓 리스트 명세
+        const baseDrinkDatabase = [
+            { brand: '스타벅스', name: '에스프레소 콘 파나', caffeine: 75 },
+            { brand: '스타벅스', name: '카페 아메리카노 (Tall)', caffeine: 150 },
+            { brand: '스타벅스', name: '카페 아메리카노 (Grande)', caffeine: 225 },
+            { brand: '스타벅스', name: '카페 라떼 (Tall)', caffeine: 75 },
+            { brand: '스타벅스', name: '콜드 브루 (Tall)', caffeine: 155 },
+            { brand: '메가커피', name: '메가리카노 (32oz)', caffeine: 386 },
+            { brand: '메가커피', name: '아메리카노 (ICE)', caffeine: 193 },
+            { brand: '메가커피', name: '큐브라떼 (ICE)', caffeine: 287 },
+            { brand: '메가커피', name: '민트크림초코 (ICE)', caffeine: 60 },
+            { brand: '빽다방', name: '앗!메리카노 (ICE)', caffeine: 237 },
+            { brand: '빽다방', name: '빽사이즈 아메리카노', caffeine: 474 },
+            { brand: '빽다방', name: '원조커피 (ICE)', caffeine: 390 },
+            { brand: '빽다방', name: '달콤아이스티', caffeine: 65 },
+            { brand: '에너지음료', name: '몬스터 에너지 오리지널', caffeine: 100 },
+            { brand: '에너지음료', name: '핫식스 오리지널', caffeine: 60 },
+            { brand: '에너지음료', name: '레드불 에너지드링크', caffeine: 62.5 }
+        ];
+
+        // 파트별 마켓 가구 의상 데이터 가이드라인 명세 (슬롯 정의 및 보유 상태 트래킹)
+        const shopClothesDatabase = [
+            { id: 'hat_1', name: '신사 중절모자', slot: 'head', price: 15, emoji: '🎩' },
+            { id: 'hat_2', name: '엔젤 버니 머리띠', slot: 'head', price: 20, emoji: '🐰' },
+            { id: 'glass_1', name: '힙스터 선글라스', slot: 'eyes', price: 25, emoji: '🕶️' },
+            { id: 'tie_1', name: '레드 럭셔리 보타이', slot: 'body', price: 30, emoji: '🎀' },
+            { id: 'pants_1', name: '귀요미 멜빵바지', slot: 'legs', price: 40, emoji: '👖' },
+            { id: 'shoes_1', name: '질주용 스피드 신발', slot: 'shoes', price: 50, emoji: '👟' }
+        ];
+
+        // 다중 사용자 상태 관리 구조 오브젝트
+        let currentUserId = null;
+        let currentUserState = null; 
+
+        // 탭 상태 및 인터페이스 캐싱 인덱스
+        let activeTabId = 'main';
+        let selectedBrandFilter = 'all';
+        let currentCalendarYear = 2026;
+        let currentCalendarMonth = 5; 
+        let currentStatsWeekOffset = 0; // 주간 통계 이동 오프셋 변수
+
+        window.onload = function() {
+            // 초기 시스템 셋업 날짜 설정 동기화
+            const d = new Date();
+            currentCalendarYear = d.getFullYear();
+            currentCalendarMonth = d.getMonth();
+            
+            // 기존 로그인 세션 체크 확인
+            const lastSession = localStorage.getItem('caffeine_out_active_session');
+            if(lastSession) {
+                loadUserSession(lastSession);
+            } else {
+                toggleAuthView(true);
+            }
+        };
+
+        // --- 계정 및 인증 서비스 핸들러 ---
+        function toggleAuthView(isLogin) {
+            document.getElementById('authModal').classList.remove('hidden');
+            if(isLogin) {
+                document.getElementById('loginForm').classList.remove('hidden');
+                document.getElementById('registerForm').classList.add('hidden');
+            } else {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('registerForm').classList.remove('hidden');
+            }
+        }
+
+        function handleRegister() {
+            const id = document.getElementById('regId').value.trim();
+            const pw = document.getElementById('regPw').value.trim();
+            const name = document.getElementById('regName').value.trim();
+
+            if(!id || !pw || !name) return alert("모든 항목을 올바르게 채워주세요.");
+
+            let allUsers = JSON.parse(localStorage.getItem('caffeine_out_users') || '{}');
+            if(allUsers[id]) {
+                return alert("이미 사용중인 아이디입니다.");
+            }
+
+            // 신규 사용자 기본 상태 구조 스키마 빌드
+            allUsers[id] = {
+                password: pw,
+                nickname: name,
+                hasSetupCompleted: false,
+                petName: "", age: null, weight: null, targetCaffeine: 400,
+                coins: 0,
+                inventory: [],
+                equippedItems: { head: "", eyes: "", body: "", legs: "", shoes: "" },
+                calendarHistory: {},
+                detailedLogs: {},
+                lastRewardCheckedDate: ""
+            };
+
+            localStorage.setItem('caffeine_out_users', JSON.stringify(allUsers));
+            alert("회원가입이 완료되었습니다!");
+            
+            // 자동 로그인 프로세스 진행
+            loadUserSession(id);
+        }
+
+        function handleLogin() {
+            const id = document.getElementById('loginId').value.trim();
+            const pw = document.getElementById('loginPw').value.trim();
+
+            let allUsers = JSON.parse(localStorage.getItem('caffeine_out_users') || '{}');
+            if(!allUsers[id] || allUsers[id].password !== pw) {
+                return alert("아이디 또는 비밀번호가 일치하지 않습니다.");
+            }
+
+            loadUserSession(id);
+        }
+
+        function loadUserSession(userId) {
+            currentUserId = userId;
+            localStorage.setItem('caffeine_out_active_session', userId);
+            
+            let allUsers = JSON.parse(localStorage.getItem('caffeine_out_users'));
+            currentUserState = allUsers[userId];
+
+            document.getElementById('authModal').classList.add('hidden');
+
+            if(!currentUserState.hasSetupCompleted) {
+                document.getElementById('setupModal').classList.remove('hidden');
+                toggleSetupStep('stepPetName');
+            } else {
+                document.getElementById('setupModal').classList.add('hidden');
+                evaluatePassiveReward();
+                syncAppState();
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('caffeine_out_active_session');
+            currentUserId = null;
+            currentUserState = null;
+            document.getElementById('loginId').value = "";
+            document.getElementById('loginPw').value = "";
+            toggleAuthView(true);
+        }
+
+        // --- 4단계 설정 처리 위제트 모듈 ---
+        function toggleSetupStep(stepId) {
+            ['stepPetName', 'stepAge', 'stepWeight', 'stepTarget'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(stepId).classList.remove('hidden');
+        }
+
+        function savePetName() {
+            const name = document.getElementById('inputPetName').value.trim();
+            if(!name) return alert("강아지 이름을 결정해 주세요!");
+            currentUserState.petName = name;
+            toggleSetupStep('stepAge');
+        }
+
+        function goToWeight() {
+            const age = parseInt(document.getElementById('inputAge').value);
+            if(!age || age <= 0) return alert("유효한 나이를 입력하세요.");
+            currentUserState.age = age;
+            toggleSetupStep('stepWeight');
+        }
+
+        function calculateRecommendation() {
+            const weight = parseInt(document.getElementById('inputWeight').value);
+            if(!weight || weight <= 0) return alert("유효한 체중을 입력하세요.");
+            currentUserState.weight = weight;
+
+            let recommended = 400;
+            let info = "";
+            if(currentUserState.age >= 20) {
+                info = "성인의 일일 카페인 권장 섭취량은 400mg 이하입니다.";
+                recommended = 400;
+            } else {
+                recommended = Math.round(weight * 2.5);
+                info = `어린이·청소년의 일일 권장 섭취량은 (체중 ${weight}kg x 2.5) = ${recommended}mg 이하입니다.`;
+            }
+
+            document.getElementById('recommendText').innerText = info;
+            document.getElementById('inputTarget').value = recommended;
+            toggleSetupStep('stepTarget');
+        }
+
+        function completeSetup() {
+            const tgt = parseInt(document.getElementById('inputTarget').value);
+            if(!tgt || tgt <= 0) return alert("목표치를 정확히 기재하세요.");
+            
+            currentUserState.targetCaffeine = tgt;
+            currentUserState.coins = 5; // 첫 보상 코인 가산 지급
+            currentUserState.hasSetupCompleted = true;
+            
+            const todayStr = getTodayString();
+            currentUserState.lastRewardCheckedDate = todayStr;
+            currentUserState.calendarHistory[todayStr] = 0;
+            currentUserState.detailedLogs[todayStr] = [];
+
+            document.getElementById('setupModal').classList.add('hidden');
+            alert(`🎉 환영합니다! 가입 축하금 5코인이 적립되었습니다.`);
+            
+            saveGlobalUserState();
+            syncAppState();
+        }
+
+        // --- 백엔드 스토리지 저장 및 캐시 파이프라인 ---
+        function saveGlobalUserState() {
+            if(!currentUserId || !currentUserState) return;
+            let allUsers = JSON.parse(localStorage.getItem('caffeine_out_users') || '{}');
+            allUsers[currentUserId] = currentUserState;
+            localStorage.setItem('caffeine_out_users', JSON.stringify(allUsers));
+        }
+
+        // --- 실시간 정산 및 누적 보상 시스템 엔진 ---
+        function evaluatePassiveReward() {
+            const todayStr = getTodayString();
+            if(!currentUserState.lastRewardCheckedDate) {
+                currentUserState.lastRewardCheckedDate = todayStr;
+                saveGlobalUserState();
+                return;
+            }
+
+            let cursor = new Date(currentUserState.lastRewardCheckedDate);
+            const todayTime = new Date(todayStr);
+            let checkCounter = 0;
+            let totalEarnedCoins = 0;
+
+            cursor.setDate(cursor.getDate() + 1);
+
+            while(cursor < todayTime) {
+                const y = cursor.getFullYear();
+                const m = String(cursor.getMonth() + 1).padStart(2, '0');
+                const d = String(cursor.getDate()).padStart(2, '0');
+                const compKey = `${y}-${m}-${d}`;
+
+                // 과거 기록 유무 검증 후 목표 이하 제어 성공 판별 분석 진행
+                const dayIntake = currentUserState.calendarHistory[compKey];
+                if(dayIntake !== undefined) {
+                    if(dayIntake <= currentUserState.targetCaffeine) {
+                        totalEarnedCoins += 3;
+                    }
+                } else {
+                    // 미입력 및 미기록 일자는 0mg 섭취 상태로 귀속되어 절제 성공 판정 처리
+                    totalEarnedCoins += 3;
+                }
+                
+                cursor.setDate(cursor.getDate() + 1);
+                checkCounter++;
+            }
+
+            if(totalEarnedCoins > 0) {
+                currentUserState.coins += totalEarnedCoins;
+                alert(`🎁 [부재중 누적 정산 보상]\n\n지난 ${checkCounter}일 동안의 카페인 절제 여부를 추적 조사하여 총 ${totalEarnedCoins}코인이 누적 정산 합산되었습니다.`);
+            }
+
+            currentUserState.lastRewardCheckedDate = todayStr;
+            if(currentUserState.calendarHistory[todayStr] === undefined) currentUserState.calendarHistory[todayStr] = 0;
+            if(currentUserState.detailedLogs[todayStr] === undefined) currentUserState.detailedLogs[todayStr] = [];
+            saveGlobalUserState();
+        }
+
+        // --- 앱 코어 UI 토글링 및 전체 렌더러 제어 타워 ---
+        function syncAppState() {
+            if(!currentUserState) return;
+
+            // 기본 상단 헤더 동기화 데이터 매핑
+            document.getElementById('userNicknameBadge').innerText = currentUserState.nickname;
+            document.getElementById('coinDisplay').innerText = currentUserState.coins;
+            document.getElementById('shopCoinDisplay').innerText = currentUserState.coins;
+            document.getElementById('characterNameBadge').innerText = currentUserState.petName;
+            document.getElementById('shopPetNameLabel').innerText = `${currentUserState.petName}의 드레스룸`;
+
+            const todayStr = getTodayString();
+            const currentCaff = currentUserState.calendarHistory[todayStr] || 0;
+            const target = currentUserState.targetCaffeine;
+
+            document.getElementById('todayIntakeText').innerText = currentCaff;
+            document.getElementById('targetIntakeText').innerText = target;
+
+            // 도넛 차트 퍼센티지 변환 계산식
+            const ratio = Math.min(currentCaff / target, 1);
+            const percent = Math.round((currentCaff / target) * 100);
+            document.getElementById('gaugePercentText').innerText = `${percent}% 섭취 중`;
+
+            const circle = document.getElementById('gaugeCircle');
+            const circumference = 2 * Math.PI * 44;
+            circle.style.strokeDashoffset = circumference - (ratio * circumference);
+
+            // 게이지 포화 농도 색상 스와핑 규격
+            if(percent >= 100) circle.setAttribute('stroke', '#dc2626');
+            else if(percent >= 50) circle.setAttribute('stroke', '#ea580c');
+            else circle.setAttribute('stroke', '#d97706');
+
+            // 장착중인 이모지 가구 부위별 실시간 드로잉
+            const slots = ['head', 'eyes', 'body', 'legs', 'shoes'];
+            slots.forEach(slot => {
+                const itemKey = currentUserState.equippedItems[slot];
+                const targetObj = shopClothesDatabase.find(c => c.id === itemKey);
+                document.getElementById(`slot-${slot}`).innerText = targetObj ? targetObj.emoji : '';
+            });
+
+            // 금일 타임라인 로그 목록 출력 처리
+            const listEl = document.getElementById('todayLogsList');
+            const todayLogs = currentUserState.detailedLogs[todayStr] || [];
+
+            if(todayLogs.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-xs text-gray-400 italic text-center py-5 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                        아직 추가된 복용 내역이 없습니다. 하단의 ＋ 버튼을 누르세요.
+                    </div>`;
+            } else {
+                listEl.innerHTML = todayLogs.map((log, index) => `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl shadow-sm text-xs">
+                        <div>
+                            <span class="text-[9px] bg-amber-800 text-white font-bold px-1.5 py-0.5 rounded mr-1">${log.brand}</span>
+                            <span class="font-bold text-gray-800">${log.name} <span class="text-gray-400 font-normal">(${log.ratio}%)</span></span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="font-black text-amber-950">${log.calculatedCaffeine}mg</span>
+                            <button onclick="removeIntakeLog(${index})" class="text-gray-300 hover:text-red-500 font-extrabold text-sm px-1">✕</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 하브 서브 탭 갱신 처리 제어
+            renderCalendar();
+            renderStatsChart();
+            renderShopGrid();
+        }
+
+        function removeIntakeLog(index) {
+            if(!confirm("해당 복용 기록을 취소 처리 하시겠습니까?")) return;
+            const todayStr = getTodayString();
+            const logs = currentUserState.detailedLogs[todayStr] || [];
+            const deleted = logs.splice(index, 1)[0];
+
+            currentUserState.calendarHistory[todayStr] = Math.max(0, currentUserState.calendarHistory[todayStr] - deleted.calculatedCaffeine);
+            
+            saveGlobalUserState();
+            syncAppState();
+        }
+
+        // --- 서랍장 인터페이스 관리 및 서칭 기능 단 ---
+        function toggleDrinkDrawer(open) {
+            const drawer = document.getElementById('drinkDrawer');
+            if(open) {
+                drawer.classList.remove('translate-y-full');
+                performSearch();
+            } else {
+                drawer.classList.add('translate-y-full');
+            }
+        }
+
+        function updateDosageLabel() {
+            const value = document.getElementById('dosageRange').value;
+            document.getElementById('dosageLabel').innerText = `${value}% font 분량 복용`;
+        }
+
+        function filterBrand(brand) {
+            selectedBrandFilter = brand;
+            document.querySelectorAll('.brand-btn').forEach(btn => {
+                if(btn.innerText.includes(brand === 'all' ? '전체' : brand === '에너지음료' ? '에너지' : brand)) {
+                    btn.className = "brand-btn bg-amber-800 text-white px-3 py-1 rounded-full font-bold shadow-sm animate-pulse";
+                } else {
+                    btn.className = "brand-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-bold";
+                }
+            });
+            performSearch();
+        }
+
+        function performSearch() {
+            const query = document.getElementById('searchBar').value.toLowerCase().trim();
+            let data = baseDrinkDatabase;
+
+            if(selectedBrandFilter !== 'all') {
+                data = data.filter(d => d.brand === selectedBrandFilter);
+            }
+            if(query) {
+                data = data.filter(d => d.name.toLowerCase().includes(query) || d.brand.toLowerCase().includes(query));
+            }
+
+            const container = document.getElementById('drawerDrinksContainer');
+            if(data.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6 italic">조회된 메뉴 데이터가 없습니다.</p>`;
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div onclick="addCaffeineIntake('${item.brand}', '${item.name}', ${item.caffeine})" class="flex justify-between items-center p-3 bg-amber-50/40 rounded-xl border border-amber-100/70 hover:bg-amber-100/60 cursor-pointer transition">
+                    <div>
+                        <span class="text-[9px] bg-amber-900 text-amber-100 px-1.5 py-0.5 rounded mr-1.5 font-bold">${item.brand}</span>
+                        <span class="text-xs font-bold text-gray-800">${item.name}</span>
+                    </div>
+                    <span class="text-xs font-black text-amber-950">${item.caffeine}mg</span>
+                </div>
+            `).join('');
+        }
+
+        function addCaffeineIntake(brand, name, baseCaffeine) {
+            const ratio = parseInt(document.getElementById('dosageRange').value);
+            const calculated = Math.round((baseCaffeine * ratio) / 100);
+            const todayStr = getTodayString();
+
+            currentUserState.detailedLogs[todayStr].push({
+                brand: brand, name: name, ratio: ratio, calculatedCaffeine: calculated
+            });
+
+            currentUserState.calendarHistory[todayStr] = (currentUserState.calendarHistory[todayStr] || 0) + calculated;
+
+            alert(`📥 [기록 완료] ${name} (${ratio}% 분량) -> ${calculated}mg이 추가 산정되었습니다.`);
+            toggleDrinkDrawer(false);
+            
+            // 데이터 동기화 커밋 및 가중치 업데이트
+            saveGlobalUserState();
+            syncAppState();
+        }
+
+        // --- 달력 조작 패널 모듈 서비스 단 ---
+        function changeMonth(dir) {
+            currentCalendarMonth += dir;
+            if(currentCalendarMonth > 11) { currentCalendarMonth = 0; currentCalendarYear++; }
+            else if(currentCalendarMonth < 0) { currentCalendarMonth = 11; currentCalendarYear--; }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarDaysGrid');
+            if(!grid) return;
+            grid.innerHTML = '';
+
+            document.getElementById('calendarMonthTitle').innerText = `${currentCalendarYear}년 ${String(currentCalendarMonth + 1).padStart(2, '0')}월`;
+
+            const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
+            const totalDays = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+
+            // 공백 셀 피드 처리 무력화
+            for(let i = 0; i < firstDay; i++) {
+                grid.innerHTML += `<div></div>`;
+            }
+
+            for(let d = 1; d <= totalDays; d++) {
+                const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const val = currentUserState.calendarHistory[dateStr];
+                
+                let lvClass = "caff-0";
+                if(val !== undefined && val > 0) {
+                    const rate = (val / currentUserState.targetCaffeine) * 100;
+                    if(rate <= 50) lvClass = "caff-50";
+                    else if(rate <= 100) lvClass = "caff-100";
+                    else if(rate <= 150) lvClass = "caff-150";
+                    else lvClass = "caff-over";
+                }
+
+                grid.innerHTML += `
+                    <div onclick="showCalendarDateDetail('${dateStr}')" class="${lvClass} p-2 rounded-lg text-center font-bold shadow-sm cursor-pointer hover:scale-105 transition-transform">
+                        ${d}
+                    </div>`;
+            }
+        }
+
+        function showCalendarDateDetail(dateKey) {
+            document.getElementById('detailDateTitle').innerText = `📅 ${dateKey} 상세 스냅샷 리포트`;
+            const container = document.getElementById('calendarDetailContainer');
+
+            const total = currentUserState.calendarHistory[dateKey] || 0;
+            const logs = currentUserState.detailedLogs[dateKey] || [];
+
+            if(total === 0 && logs.length === 0) {
+                container.innerHTML = `<p class="text-xs text-amber-900/60 font-semibold italic">이날은 카페인 섭취 기록이 없어요.</p>`;
+                return;
+            }
+
+            let html = `<p class="mb-2 font-bold text-gray-700">하루 총 유입량: <span class="text-amber-900 text-sm font-black">${total} mg</span></p>`;
+            html += `<div class="space-y-1.5">`;
+            logs.forEach(l => {
+                html += `
+                <div class="bg-white p-2 rounded border border-gray-200 text-[11px] flex justify-between">
+                    <span class="text-gray-700 font-medium">· [${l.brand}] ${l.name} (${l.ratio}%)</span>
+                    <span class="font-bold text-amber-950">${l.calculatedCaffeine} mg</span>
+                </div>`;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        // --- 순수 돔 수치 제어 기반 주간 통계 컴포넌트 처리 단 ---
+        function changeWeek(dir) {
+            currentStatsWeekOffset += dir;
+            renderStatsChart();
+        }
+
+        function renderStatsChart() {
+            if(activeTabId !== 'stats') return;
+
+            // 월요일 기준 탐색 인덱서 루프 빌드업
+            const currentToday = new Date();
+            currentToday.setDate(currentToday.getDate() + (currentStatsWeekOffset * 7));
+            const currentDayOfWeek = currentToday.getDay(); // 0(일)~6(토)
+            
+            // 월요일 기점 기준점 정렬 보정 공식 오프셋 계산식
+            const mondayOffset = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+            const mondayDate = new Date(currentToday);
+            mondayDate.setDate(mondayDate.getDate() + mondayOffset);
+
+            let datesOfWeek = [];
+            for(let i = 0; i < 7; i++) {
+                let temp = new Date(mondayDate);
+                temp.setDate(temp.getDate() + i);
+                datesOfWeek.push(temp);
+            }
+
+            // 상단 가이드 바 헤더 레벨 마킹 처리
+            const startLabel = `${datesOfWeek[0].getMonth()+1}/${datesOfWeek[0].getDate()}`;
+            const endLabel = `${datesOfWeek[6].getMonth()+1}/${datesOfWeek[6].getDate()}`;
+            document.getElementById('weekRangeTitle').innerText = `‹ ${startLabel} - ${endLabel} ›`;
+
+            // 주간단위 최고 밸류 탐색 및 기준 스케일 확보
+            let parsedValues = [];
+            let validDaysCount = 0;
+            let sumValue = 0;
+            let successDaysCount = 0;
+
+            datesOfWeek.forEach(d => {
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                const val = currentUserState.calendarHistory[key] || 0;
+                parsedValues.push({ value: val, dateKey: key, rawDate: d });
+
+                if(currentUserState.calendarHistory[key] !== undefined) {
+                    validDaysCount++;
+                    sumValue += val;
+                    if(val <= currentUserState.targetCaffeine) successDaysCount++;
+                } else {
+                    // 기록 없음 일자도 패시브 타겟 성공으로 바인딩 처리 규격 일체화
+                    successDaysCount++;
+                }
+            });
+
+            // 스케일 기준값 결정 연산 (최고값과 목표값 중 최대값 산출)
+            const maxInWeek = Math.max(...parsedValues.map(v => v.value), currentUserState.targetCaffeine);
+            const wrapper = document.getElementById('statsBarWrapper');
+            wrapper.innerHTML = '';
+
+            const korDays = ['월', '화', '수', '목', '금', '토', '일'];
+
+            parsedValues.forEach((item, idx) => {
+                // 백분율 환산 높이 계산 (최소 마킹 높이 12% 격리 부여)
+                const heightPercent = maxInWeek > 0 ? Math.max((item.value / maxInWeek) * 100, 8) : 8;
+                
+                // 농도에 맞춰 막대 컬러 클래스 바인딩 스위칭
+                let barColorClass = "caff-0";
+                if(item.value > 0) {
+                    const rate = (item.value / currentUserState.targetCaffeine) * 100;
+                    if(rate <= 50) barColorClass = "caff-50";
+                    else if(rate <= 100) barColorClass = "caff-100";
+                    else if(rate <= 150) barColorClass = "caff-150";
+                    else barColorClass = "caff-over";
+                }
+
+                wrapper.innerHTML += `
+                    <div class="flex flex-col items-center flex-1 space-y-1 h-full justify-end relative">
+                        <span class="text-[8px] text-gray-500 font-bold">${item.value}</span>
+                        <div class="${barColorClass} w-6 rounded-t-sm transition-all duration-500 shadow-sm" style="height: ${heightPercent}%;"></div>
+                        <span class="text-[10px] font-bold text-gray-400 mt-1">${korDays[idx]}</span>
+                    </div>`;
+            });
+
+            // 통계 집계 데이터 요약 반영 바인딩 단
+            const avgVal = validDaysCount > 0 ? Math.round(sumValue / validDaysCount) : 0;
+            document.getElementById('statAvgText').innerText = `${avgVal} mg`;
+            document.getElementById('statSuccessText').innerText = `${successDaysCount} / 7 일`;
+        }
+
+        // --- 상점 아웃핏 꾸미기 인벤토리 매니지먼트 존 ---
+        function renderShopGrid() {
+            const grid = document.getElementById('shopItemsGrid');
+            if(!grid) return;
+            grid.innerHTML = '';
+
+            shopClothesDatabase.forEach(item => {
+                const isBought = currentUserState.inventory.includes(item.id);
+                const isEquipped = currentUserState.equippedItems[item.slot] === item.id;
+
+                let btnStyle = "bg-amber-800 text-white";
+                let badgeText = `🪙 ${item.price}`;
+
+                if(isBought) {
+                    if(isEquipped) {
+                        btnStyle = "bg-red-600 text-white font-extrabold";
+                        badgeText = "❌ 벗기";
+                    } else {
+                        btnStyle = "bg-emerald-600 text-white font-bold";
+                        badgeText = "👕 장착";
+                    }
+                }
+
+                grid.innerHTML += `
+                    <div class="bg-amber-50/20 border border-amber-100 rounded-2xl p-3 flex flex-col items-center justify-between text-center relative">
+                        <div class="absolute top-2 left-2 text-[9px] bg-amber-900/10 text-amber-900 font-extrabold px-1.5 py-0.5 rounded">
+                            ${translateSlot(item.slot)}
+                        </div>
+                        <div class="text-3xl my-3 pt-2">${item.emoji}</div>
+                        <div class="text-[11px] font-black text-gray-800">${item.name}</div>
+                        
+                        <div class="w-full mt-3 flex items-center justify-between space-x-1">
+                            <span class="text-[8px] font-bold text-amber-900 bg-amber-50 px-1 rounded border">
+                                ${isEquipped ? '착용중' : isBought ? '보유중' : '미보유'}
+                            </span>
+                            <button onclick="handleShopItemInteraction('${item.id}', '${item.slot}', ${item.price}, ${isBought}, ${isEquipped})" class="flex-1 ${btnStyle} text-[10px] py-1 rounded-lg transition-transform active:scale-95">
+                                ${badgeText}
+                            </button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function translateSlot(slot) {
+            if(slot === 'head') return '머리';
+            if(slot === 'eyes') return '눈';
+            if(slot === 'body') return '몸통';
+            if(slot === 'legs') return '다리';
+            if(slot === 'shoes') return '발';
+            return '소품';
+        }
+
+        function handleShopItemInteraction(id, slot, price, isBought, isEquipped) {
+            if(!isBought) {
+                // 비보유 물품 구매 프로세스 진행 인터셉터
+                if(currentUserState.coins < price) return alert("🪙 잔여 코인이 부족하여 구매할 수 없습니다.");
+                if(!confirm(`해당 아이템을 구매 후 즉시 착용하시겠습니까?\n합산 코인: ${price}개`)) return;
+
+                currentUserState.coins -= price;
+                currentUserState.inventory.push(id);
+                currentUserState.equippedItems[slot] = id; // 동시 즉시 자동 인스턴트 착용 적용
+                alert("✨ 아이템을 성공적으로 구매하여 장착했습니다!");
+            } else {
+                // 보유 유저 스위칭 토글링 인터페이스 체인징 파트
+                if(isEquipped) {
+                    currentUserState.equippedItems[slot] = ""; // 의상 단일 탈의 처리
+                    alert("해당 부위 파츠를 해제했습니다.");
+                } else {
+                    currentUserState.equippedItems[slot] = id; // 갈아입기 작동 연산 체인
+                    alert("스타일 파츠 의상을 새로 장착 완료했습니다.");
+                }
+            }
+
+            saveGlobalUserState();
+            syncAppState();
+        }
+
+        // --- 글로벌 라우터 탭 컨트롤러 제어 단 ---
+        function changeTab(tabId) {
+            activeTabId = tabId;
+            ['view-main', 'view-calendar', 'view-stats', 'view-shop'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+            // 탭바 버튼 상태 클래스 업데이트 디자인 제어 루프
+            ['main', 'calendar', 'stats', 'shop'].forEach(t => {
+                const element = document.getElementById(`tab-${t}`);
+                if(t === tabId) element.className = "flex-1 font-black text-amber-950 scale-105 transition-transform";
+                else element.className = "flex-1 font-semibold text-amber-700/60";
+            });
+
+            if(tabId === 'stats') currentStatsWeekOffset = 0; // 초기 주간 바 인덱스 리셋 초기화
+            syncAppState();
+        }
+
+        function getTodayString() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
